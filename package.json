@@ -1,6 +1,6 @@
 {
     "name": "ts-import-resolver",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Resolves TypeScript import paths to absolute file paths.",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
