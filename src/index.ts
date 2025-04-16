@@ -95,9 +95,11 @@ function resolveModuleName(
     containingFile: string,
     compilerOptions: ParsedCompilerOptions,
 ): string | null {
+    const cleanedModuleName = cleanPath(moduleName);
+
     // Handle root-level imports (e.g., "/routes") relative to baseUrl
-    if (moduleName.startsWith("/") && compilerOptions.baseUrl) {
-        const relativePath = moduleName.slice(1);
+    if (cleanedModuleName.startsWith("/") && compilerOptions.baseUrl) {
+        const relativePath = cleanedModuleName.slice(1);
         const resolvedPath = path.join(compilerOptions.baseUrl, relativePath);
         const result = tryResolveFile(resolvedPath, compilerOptions);
         if (result) return result;
@@ -105,26 +107,29 @@ function resolveModuleName(
 
     if (Object.keys(compilerOptions.paths).length > 0) {
         const mappedPath = tryResolveWithPathMappings(
-            moduleName,
+            cleanedModuleName,
             compilerOptions,
         );
         if (mappedPath) return mappedPath;
     }
 
-    if (isRelativePath(moduleName)) {
+    if (isRelativePath(cleanedModuleName)) {
         const containingDir = path.dirname(containingFile);
         return tryResolveFile(
-            path.resolve(containingDir, moduleName),
+            path.resolve(containingDir, cleanedModuleName),
             compilerOptions,
         );
     }
 
-    if (path.isAbsolute(moduleName)) {
-        return tryResolveFile(moduleName, compilerOptions);
+    if (path.isAbsolute(cleanedModuleName)) {
+        return tryResolveFile(cleanedModuleName, compilerOptions);
     }
 
     if (compilerOptions.baseUrl) {
-        const baseUrlPath = path.join(compilerOptions.baseUrl, moduleName);
+        const baseUrlPath = path.join(
+            compilerOptions.baseUrl,
+            cleanedModuleName,
+        );
         return tryResolveFile(baseUrlPath, compilerOptions);
     }
 
@@ -203,4 +208,22 @@ function directoryExists(dirPath: string): boolean {
     } catch {
         return false;
     }
+}
+
+function cleanPath(path: string): string {
+    // Normalize path separators to forward slashes
+    let cleaned = path.replace(/\\/g, "/");
+
+    // Remove duplicate slashes
+    cleaned = cleaned.replace(/\/+/g, "/");
+
+    // Remove query parameters
+    cleaned = cleaned.split("?")[0];
+
+    // Handle URL-encoded characters
+    try {
+        cleaned = decodeURIComponent(cleaned);
+    } catch {}
+
+    return cleaned;
 }
