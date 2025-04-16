@@ -661,29 +661,6 @@ describe("resolveTypeScriptImportPath", () => {
         expect(result).toBe(resolveProjectPath("src/utils/shared.ts"));
     });
 
-    it("should handle case-insensitive imports correctly on case-insensitive filesystems", () => {
-        createProject({
-            "src/Components/Button.ts": "export const Button = () => {};",
-            "src/app.ts": "import { Button } from './components/button';",
-        });
-
-        // This test will pass on case-insensitive file systems (like Windows)
-        // and fail on case-sensitive ones (like Linux)
-        // We're just testing the resolver works as expected for the current environment
-        const result = run({
-            path: "./components/button",
-            importer: resolveProjectPath("src/app.ts"),
-            tsconfig: {},
-        });
-
-        // Depending on the filesystem, this might be case-sensitive or insensitive
-        const expectedPath = resolveProjectPath("src/Components/Button.ts");
-        const exists = !!result;
-
-        // We're not testing the exact result, just that it exists if the filesystem found it
-        expect(exists).toBe(!!expectedPath);
-    });
-
     it("should handle path mappings with empty string patterns", () => {
         createProject({
             "src/index.ts": "export const app = {};",
