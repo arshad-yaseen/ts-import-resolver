@@ -1,7 +1,7 @@
 # ts-import-resolver
 
-[![npm version](https://img.shields.io/npm/v/bunup.svg?style=flat-square)](https://www.npmjs.com/package/ts-import-resolver)
-[![npm downloads](https://img.shields.io/npm/dm/bunup.svg?style=flat-square)](https://www.npmjs.com/package/ts-import-resolver)
+[![npm version](https://img.shields.io/npm/v/ts-import-resolver.svg?style=flat-square)](https://www.npmjs.com/package/ts-import-resolver)
+[![npm downloads](https://img.shields.io/npm/dm/ts-import-resolver.svg?style=flat-square)](https://www.npmjs.com/package/ts-import-resolver)
 
 Lightweight, fast utility that resolves TypeScript import paths to absolute file paths without TypeScript compiler.
 
