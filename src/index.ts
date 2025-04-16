@@ -1,130 +1,206 @@
-import ts from "typescript";
+import fs from "node:fs";
+import path from "node:path";
 
-/**
- * Options for resolving TypeScript import paths.
- */
+interface TsConfig {
+    compilerOptions?: CompilerOptions;
+}
+
+interface CompilerOptions {
+    baseUrl?: string;
+    paths?: Record<string, string[]>;
+    allowJs?: boolean;
+    resolveJsonModule?: boolean;
+    moduleResolution?: "node" | "classic";
+}
+
 export interface ResolveTypeScriptImportPathOptions {
-    /**
-     * The import path to resolve (e.g., './utils', '@/components', etc.)
-     */
     path: string;
-
-    /**
-     * The absolute path of the file containing the import
-     */
     importer: string;
-
-    /**
-     * The parsed TypeScript configuration object
-     */
-    tsconfig: Record<string, unknown> | null;
-
-    /**
-     * The root directory of the project
-     */
+    tsconfig: TsConfig;
     rootDir: string;
 }
 
-const parsedConfigCache = new Map<string, ts.ParsedCommandLine>();
-const resolvedModuleCache = new Map<
-    string,
-    ts.ResolvedModuleWithFailedLookupLocations
->();
-const finalPathCache = new Map<string, string | null>();
-const overallResultCache = new Map<string, string | null>();
-let tsconfigCounter = 0;
-const tsconfigIDs = new WeakMap<object, number>();
+interface ParsedCompilerOptions {
+    baseUrl: string;
+    paths: Record<string, string[]>;
+    extensions: string[];
+    rootDir: string;
+}
 
-/**
- * Resolves a TypeScript import path to its absolute file path.
- */
+class ResolutionCache {
+    private patternRegexes = new Map<string, RegExp>();
+
+    getOrCreatePatternRegex(pattern: string): RegExp {
+        let regex = this.patternRegexes.get(pattern);
+        if (!regex) {
+            const escaped = pattern
+                .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+                .replace(/\*/g, "(.*)");
+            regex = new RegExp(`^${escaped}$`);
+            this.patternRegexes.set(pattern, regex);
+        }
+        return regex;
+    }
+
+    clear(): void {
+        this.patternRegexes.clear();
+    }
+}
+
+const cache = new ResolutionCache();
+
 export function resolveTypeScriptImportPath(
     options: ResolveTypeScriptImportPathOptions,
 ): string | null {
-    const { path, importer, tsconfig, rootDir } = options;
+    const { path: importPath, importer, tsconfig, rootDir } = options;
 
-    if (!tsconfig) {
-        return null;
-    }
+    if (!tsconfig) return null;
 
-    let tsconfigID: number;
-    if (tsconfigIDs.has(tsconfig)) {
-        const id = tsconfigIDs.get(tsconfig);
-        tsconfigID = id !== undefined ? id : tsconfigCounter++;
-    } else {
-        tsconfigID = tsconfigCounter++;
-        tsconfigIDs.set(tsconfig, tsconfigID);
-    }
+    const parsedConfig = parseCompilerOptions(tsconfig, rootDir);
+    const resolvedModule = resolveModuleName(
+        importPath,
+        importer,
+        parsedConfig,
+    );
 
-    const overallResultKey = `${path}:${importer}:${tsconfigID}:${rootDir}`;
-    if (overallResultCache.has(overallResultKey)) {
-        const result = overallResultCache.get(overallResultKey);
-        return result !== undefined ? result : null;
-    }
-
-    const parsedConfigKey = `${tsconfigID}:${rootDir}`;
-    let parsedConfig: ts.ParsedCommandLine;
-    if (parsedConfigCache.has(parsedConfigKey)) {
-        const cached = parsedConfigCache.get(parsedConfigKey);
-        parsedConfig =
-            cached !== undefined
-                ? cached
-                : ts.parseJsonConfigFileContent(tsconfig, ts.sys, rootDir);
-    } else {
-        parsedConfig = ts.parseJsonConfigFileContent(tsconfig, ts.sys, rootDir);
-        parsedConfigCache.set(parsedConfigKey, parsedConfig);
-    }
-
-    const resolvedModuleKey = `${path}:${importer}:${parsedConfigKey}`;
-    let result: ts.ResolvedModuleWithFailedLookupLocations;
-    if (resolvedModuleCache.has(resolvedModuleKey)) {
-        const cached = resolvedModuleCache.get(resolvedModuleKey);
-        result =
-            cached !== undefined
-                ? cached
-                : ts.resolveModuleName(
-                      path,
-                      importer,
-                      parsedConfig.options,
-                      ts.sys,
-                  );
-    } else {
-        result = ts.resolveModuleName(
-            path,
-            importer,
-            parsedConfig.options,
-            ts.sys,
-        );
-        resolvedModuleCache.set(resolvedModuleKey, result);
-    }
-
-    const resolvedFileName = result.resolvedModule?.resolvedFileName;
-
-    if (!resolvedFileName) {
-        overallResultCache.set(overallResultKey, null);
-        return null;
-    }
-
-    const finalPathKey = `${resolvedFileName}:${rootDir}`;
-    let finalPath: string | null;
-
-    if (finalPathCache.has(finalPathKey)) {
-        const cached = finalPathCache.get(finalPathKey);
-        finalPath = cached !== undefined ? cached : null;
-    } else {
-        if (isNodeModulePath(resolvedFileName)) {
-            finalPath = null;
-        } else {
-            finalPath = resolvedFileName;
-        }
-
-        finalPathCache.set(finalPathKey, finalPath);
-    }
-
-    overallResultCache.set(overallResultKey, finalPath);
-    return finalPath;
+    return resolvedModule || null;
 }
 
-function isNodeModulePath(filePath: string): boolean {
-    return filePath.includes("node_modules");
+export function clearResolutionCache(): void {
+    cache.clear();
+}
+
+function parseCompilerOptions(
+    tsconfig: TsConfig,
+    rootDir: string,
+): ParsedCompilerOptions {
+    const options = tsconfig.compilerOptions || {};
+    const baseUrl = options.baseUrl
+        ? path.resolve(rootDir, options.baseUrl)
+        : rootDir;
+    const extensions = [".ts", ".tsx", ".d.ts"];
+    if (options.allowJs) extensions.push(".js", ".jsx");
+    if (options.resolveJsonModule) extensions.push(".json");
+
+    return {
+        baseUrl,
+        paths: options.paths || {},
+        extensions,
+        rootDir,
+    };
+}
+
+function resolveModuleName(
+    moduleName: string,
+    containingFile: string,
+    compilerOptions: ParsedCompilerOptions,
+): string | null {
+    // Handle root-level imports (e.g., "/routes") relative to baseUrl
+    if (moduleName.startsWith("/") && compilerOptions.baseUrl) {
+        const relativePath = moduleName.slice(1);
+        const resolvedPath = path.join(compilerOptions.baseUrl, relativePath);
+        const result = tryResolveFile(resolvedPath, compilerOptions);
+        if (result) return result;
+    }
+
+    if (Object.keys(compilerOptions.paths).length > 0) {
+        const mappedPath = tryResolveWithPathMappings(
+            moduleName,
+            compilerOptions,
+        );
+        if (mappedPath) return mappedPath;
+    }
+
+    if (isRelativePath(moduleName)) {
+        const containingDir = path.dirname(containingFile);
+        return tryResolveFile(
+            path.resolve(containingDir, moduleName),
+            compilerOptions,
+        );
+    }
+
+    if (path.isAbsolute(moduleName)) {
+        return tryResolveFile(moduleName, compilerOptions);
+    }
+
+    if (compilerOptions.baseUrl) {
+        const baseUrlPath = path.join(compilerOptions.baseUrl, moduleName);
+        return tryResolveFile(baseUrlPath, compilerOptions);
+    }
+
+    return null;
+}
+
+function isRelativePath(moduleName: string): boolean {
+    return (
+        moduleName.startsWith("./") ||
+        moduleName.startsWith("../") ||
+        moduleName === "."
+    );
+}
+
+function tryResolveWithPathMappings(
+    moduleName: string,
+    compilerOptions: ParsedCompilerOptions,
+): string | null {
+    const { paths, baseUrl } = compilerOptions;
+
+    for (const [pattern, substitutions] of Object.entries(paths)) {
+        if (!Array.isArray(substitutions) || !substitutions.length) continue;
+
+        const patternRegex = cache.getOrCreatePatternRegex(pattern);
+        const match = patternRegex.exec(moduleName);
+        if (!match) continue;
+
+        const wildcardMatch = pattern.includes("*") ? match[1] : "";
+
+        for (const substitution of substitutions) {
+            const candidate = substitution.replace("*", wildcardMatch);
+            const result = tryResolveFile(
+                path.resolve(baseUrl, candidate),
+                compilerOptions,
+            );
+            if (result) return result;
+        }
+    }
+
+    return null;
+}
+
+function tryResolveFile(
+    filePath: string,
+    compilerOptions: ParsedCompilerOptions,
+): string | null {
+    if (fileExists(filePath)) return filePath;
+
+    const { extensions } = compilerOptions;
+    for (const ext of extensions) {
+        const pathWithExt = `${filePath}${ext}`;
+        if (fileExists(pathWithExt)) return pathWithExt;
+    }
+
+    if (directoryExists(filePath)) {
+        for (const ext of extensions) {
+            const indexPath = path.join(filePath, `index${ext}`);
+            if (fileExists(indexPath)) return indexPath;
+        }
+    }
+
+    return null;
+}
+
+function fileExists(filePath: string): boolean {
+    try {
+        return fs.statSync(filePath).isFile();
+    } catch {
+        return false;
+    }
+}
+
+function directoryExists(dirPath: string): boolean {
+    try {
+        return fs.statSync(dirPath).isDirectory();
+    } catch {
+        return false;
+    }
 }

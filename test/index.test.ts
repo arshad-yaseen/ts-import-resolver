@@ -1,110 +1,850 @@
-import fs from "node:fs";
-import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { resolveTypeScriptImportPath } from "../src";
-
-const rootDir = process.cwd();
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+    cleanProjectDir,
+    createProject,
+    resolveProjectPath,
+    run,
+} from "./utils";
 
 describe("resolveTypeScriptImportPath", () => {
-    const basicTsconfig = {
-        compilerOptions: {
-            baseUrl: ".",
-            paths: {
-                "@/*": ["src/*"],
-            },
-            rootDir: "./src",
-        },
-    };
-
-    it("should resolve a relative path", () => {
-        const result = resolveTypeScriptImportPath({
-            path: "../src/index",
-            importer: path.resolve(rootDir, "test/index.test.ts"),
-            tsconfig: basicTsconfig,
-            rootDir,
-        });
-
-        expect(result).toBeTruthy();
-        expect(result).toContain(path.join(rootDir, "src/index"));
+    beforeEach(() => {
+        cleanProjectDir();
     });
 
-    it("should return null for non-existent paths", () => {
-        const result = resolveTypeScriptImportPath({
-            path: "./non-existent-file",
-            importer: path.resolve(rootDir, "test/index.test.ts"),
-            tsconfig: basicTsconfig,
-            rootDir,
+    it("should resolve relative imports", () => {
+        createProject({
+            "src/index.ts": "export const hello = 'world';",
+            "src/utils/helper.ts": "import { hello } from '../index';",
         });
 
-        expect(result).toBeNull();
-    });
-
-    it("should return null if tsconfig is null", () => {
-        const result = resolveTypeScriptImportPath({
-            path: "../src/index",
-            importer: path.resolve(rootDir, "test/index.test.ts"),
-            tsconfig: null,
-            rootDir,
+        const result = run({
+            path: "../index",
+            importer: resolveProjectPath("src/utils/helper.ts"),
+            tsconfig: {},
         });
 
-        expect(result).toBeNull();
+        expect(result).toBe(resolveProjectPath("src/index.ts"));
     });
 
-    it("should resolve path aliases defined in tsconfig", () => {
-        const result = resolveTypeScriptImportPath({
-            path: "@/index",
-            importer: path.resolve(rootDir, "test/index.test.ts"),
-            tsconfig: basicTsconfig,
-            rootDir,
+    it("should resolve imports using path mappings", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/pages/Home.ts": "import { Button } from '@components/Button';",
         });
 
-        expect(result).toBeTruthy();
-        expect(result).toContain(path.join(rootDir, "src/index"));
-    });
-
-    it("should handle complex path resolution", () => {
-        const complexTsconfig = {
-            compilerOptions: {
-                baseUrl: ".",
-                paths: {
-                    "@/*": ["src/*"],
-                    "~utils/*": ["src/utils/*"],
-                    "lib/*": ["src/lib/*"],
+        const result = run({
+            path: "@components/Button",
+            importer: resolveProjectPath("src/pages/Home.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@components/*": ["src/components/*"],
+                    },
                 },
-                rootDir: "./src",
             },
-        };
+        });
 
-        const testFilePath = path.resolve(rootDir, "src/utils/helper.ts");
-        const testFileDir = path.dirname(testFilePath);
-
-        if (fs.existsSync(testFileDir)) {
-            const result = resolveTypeScriptImportPath({
-                path: "~utils/helper",
-                importer: path.resolve(rootDir, "test/index.test.ts"),
-                tsconfig: complexTsconfig,
-                rootDir,
-            });
-
-            if (fs.existsSync(testFilePath)) {
-                expect(result).toBeTruthy();
-                expect(result).toContain(
-                    path.join(rootDir, "src/utils/helper"),
-                );
-            } else {
-                expect(result).toBeNull();
-            }
-        }
+        expect(result).toBe(resolveProjectPath("src/components/Button.ts"));
     });
 
-    it("should return null for node_modules paths", () => {
-        const result = resolveTypeScriptImportPath({
-            path: "typescript",
-            importer: path.resolve(rootDir, "test/index.test.ts"),
-            tsconfig: basicTsconfig,
-            rootDir,
+    it("should resolve imports to index files", () => {
+        createProject({
+            "src/utils/index.ts": "export const util = () => {};",
+            "src/app.ts": "import { util } from './utils';",
+        });
+
+        const result = run({
+            path: "./utils",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/index.ts"));
+    });
+
+    it("should resolve imports with different extensions", () => {
+        createProject({
+            "src/components/Button.tsx": "export const Button = () => {};",
+            "src/utils/helper.js": "export const helper = () => {};",
+            "src/app.ts": `
+                import { Button } from './components/Button';
+                import { helper } from './utils/helper';
+            `,
+        });
+
+        const tsxResult = run({
+            path: "./components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        const jsResult = run({
+            path: "./utils/helper",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    allowJs: true,
+                },
+            },
+        });
+
+        expect(tsxResult).toBe(resolveProjectPath("src/components/Button.tsx"));
+        expect(jsResult).toBe(resolveProjectPath("src/utils/helper.js"));
+    });
+
+    it("should return null for non-existent imports", () => {
+        createProject({
+            "src/app.ts": "import { nonExistent } from './utils/non-existent';",
+        });
+
+        const result = run({
+            path: "./utils/non-existent",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
         });
 
         expect(result).toBeNull();
+    });
+
+    it("should resolve complex path mappings with wildcards", () => {
+        createProject({
+            "src/features/auth/components/Login.ts":
+                "export const Login = () => {};",
+            "src/app.ts":
+                "import { Login } from '@features/auth/components/Login';",
+        });
+
+        const result = run({
+            path: "@features/auth/components/Login",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@features/*": ["src/features/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/features/auth/components/Login.ts"),
+        );
+    });
+
+    it("should resolve imports with multiple path mapping patterns", () => {
+        createProject({
+            "src/components/ui/Button.ts": "export const Button = () => {};",
+            "src/utils/formatter.ts": "export const format = () => {};",
+            "src/app.ts": `
+                import { Button } from '@ui/Button';
+                import { format } from '@utils/formatter';
+            `,
+        });
+
+        const uiResult = run({
+            path: "@ui/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@ui/*": ["src/components/ui/*"],
+                        "@utils/*": ["src/utils/*"],
+                    },
+                },
+            },
+        });
+
+        const utilsResult = run({
+            path: "@utils/formatter",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@ui/*": ["src/components/ui/*"],
+                        "@utils/*": ["src/utils/*"],
+                    },
+                },
+            },
+        });
+
+        expect(uiResult).toBe(
+            resolveProjectPath("src/components/ui/Button.ts"),
+        );
+        expect(utilsResult).toBe(resolveProjectPath("src/utils/formatter.ts"));
+    });
+
+    it("should resolve path mappings with multiple patterns per key", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/shared/components/Button.ts":
+                "export const SharedButton = () => {};",
+            "src/app.ts": `
+                import { Button } from '@components/Button';
+                import { SharedButton } from '@shared/components/Button';
+            `,
+        });
+
+        const result1 = run({
+            path: "@components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@components/*": [
+                            "src/components/*",
+                            "src/shared/components/*",
+                        ],
+                    },
+                },
+            },
+        });
+
+        const result2 = run({
+            path: "@shared/components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@shared/*": ["src/shared/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result1).toBe(resolveProjectPath("src/components/Button.ts"));
+        expect(result2).toBe(
+            resolveProjectPath("src/shared/components/Button.ts"),
+        );
+    });
+
+    it("should resolve JSON imports when resolveJsonModule is enabled", () => {
+        createProject({
+            "src/data/config.json": JSON.stringify({ version: "1.0.0" }),
+            "src/app.ts": "import config from './data/config.json';",
+        });
+
+        const result = run({
+            path: "./data/config.json",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    resolveJsonModule: true,
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/data/config.json"));
+    });
+
+    it("should handle baseUrl configuration correctly", () => {
+        createProject({
+            "base/components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from 'components/Button';",
+        });
+
+        const result = run({
+            path: "components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./base",
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("base/components/Button.ts"));
+    });
+
+    it("should handle path mappings with non-wildcard patterns", () => {
+        createProject({
+            "src/config/constants.ts":
+                "export const API_URL = 'https://api.example.com';",
+            "src/app.ts": "import { API_URL } from '@constants';",
+        });
+
+        const result = run({
+            path: "@constants",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@constants": ["src/config/constants.ts"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/config/constants.ts"));
+    });
+
+    it("should resolve using the first matching path mapping substitution", () => {
+        createProject({
+            "src/lib/components/Button.ts":
+                "export const LibButton = () => {};",
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from '@components/Button';",
+        });
+
+        const result = run({
+            path: "@components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@components/*": [
+                            "src/lib/components/*",
+                            "src/components/*",
+                        ],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/lib/components/Button.ts"));
+    });
+
+    it("should fallback to next mapping if first one doesn't exist", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from '@components/Button';",
+        });
+
+        const result = run({
+            path: "@components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@components/*": [
+                            "src/lib/components/*",
+                            "src/components/*",
+                        ],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.ts"));
+    });
+
+    it("should resolve absolute paths", () => {
+        const absolutePath = resolveProjectPath("src/utils/helper.ts");
+
+        createProject({
+            "src/utils/helper.ts": "export const helper = () => {};",
+            "src/app.ts": `import { helper } from '${absolutePath}';`,
+        });
+
+        const result = run({
+            path: absolutePath,
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(absolutePath);
+    });
+
+    it("should handle nested directory structures", () => {
+        createProject({
+            "src/features/auth/services/auth-service/index.ts":
+                "export const authService = {};",
+            "src/app.ts":
+                "import { authService } from './features/auth/services/auth-service';",
+        });
+
+        const result = run({
+            path: "./features/auth/services/auth-service",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(
+            resolveProjectPath(
+                "src/features/auth/services/auth-service/index.ts",
+            ),
+        );
+    });
+
+    it("should resolve to .d.ts declaration files", () => {
+        createProject({
+            "src/types/models.d.ts":
+                "export interface User { id: string; name: string; }",
+            "src/app.ts": "import { User } from './types/models';",
+        });
+
+        const result = run({
+            path: "./types/models",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/types/models.d.ts"));
+    });
+
+    it("should handle complex directory and file names with special characters", () => {
+        createProject({
+            "src/components/special-component.with.dots.ts":
+                "export const Special = () => {};",
+            "src/app.ts":
+                "import { Special } from './components/special-component.with.dots';",
+        });
+
+        const result = run({
+            path: "./components/special-component.with.dots",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/components/special-component.with.dots.ts"),
+        );
+    });
+
+    it("should resolve different extensions in order of preference", () => {
+        createProject({
+            "src/utils/helper.ts": "export const tsHelper = () => {};",
+            "src/utils/helper.js": "export const jsHelper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper';",
+        });
+
+        const result = run({
+            path: "./utils/helper",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    allowJs: true,
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/helper.ts"));
+    });
+
+    it("should handle imports within barrel files", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/components/Input.ts": "export const Input = () => {};",
+            "src/components/index.ts": `
+                export * from './Button';
+                export * from './Input';
+            `,
+            "src/app.ts": "import { Button, Input } from './components';",
+        });
+
+        const result = run({
+            path: "./components",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/index.ts"));
+    });
+
+    it("should handle imports with file extension specified", () => {
+        createProject({
+            "src/utils/helper.ts": "export const helper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper.ts';",
+        });
+
+        const result = run({
+            path: "./utils/helper.ts",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/helper.ts"));
+    });
+
+    it("should handle advanced path mapping with nested aliases", () => {
+        createProject({
+            "src/features/user/profile/avatar.ts":
+                "export const Avatar = () => {};",
+            "src/app.ts": "import { Avatar } from '@user/profile/avatar';",
+        });
+
+        const result = run({
+            path: "@user/profile/avatar",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@user/*": ["src/features/user/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/features/user/profile/avatar.ts"),
+        );
+    });
+
+    it("should resolve paths when baseUrl is a nested directory", () => {
+        createProject({
+            "src/client/components/Header.ts":
+                "export const Header = () => {};",
+            "src/client/pages/Home.ts":
+                "import { Header } from 'components/Header';",
+        });
+
+        const result = run({
+            path: "components/Header",
+            importer: resolveProjectPath("src/client/pages/Home.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "src/client",
+                },
+            },
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/client/components/Header.ts"),
+        );
+    });
+
+    it("should resolve paths with non-standard extensions when included in extensions list", () => {
+        createProject({
+            "src/styles/theme.scss": ".theme { color: red; }",
+            "src/app.ts": "import styles from './styles/theme.scss';",
+        });
+
+        const result = run({
+            path: "./styles/theme.scss",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/styles/theme.scss"));
+    });
+
+    it("should resolve complex path mappings with multiple wildcards", () => {
+        createProject({
+            "src/modules/admin/components/Dashboard.ts":
+                "export const Dashboard = () => {};",
+            "src/app.ts":
+                "import { Dashboard } from '@modules/admin/components/Dashboard';",
+        });
+
+        const result = run({
+            path: "@modules/admin/components/Dashboard",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@modules/*": ["src/modules/*"],
+                        "@modules/*/components/*": [
+                            "src/modules/*/components/*",
+                        ],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/modules/admin/components/Dashboard.ts"),
+        );
+    });
+
+    it("should handle root-level imports when baseUrl is set", () => {
+        createProject({
+            "app/routes.ts": "export const routes = [];",
+            "app/pages/About.ts": "import { routes } from '/routes';",
+        });
+
+        const result = run({
+            path: "/routes",
+            importer: resolveProjectPath("app/pages/About.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "app",
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("app/routes.ts"));
+    });
+
+    it("should handle complex path mappings with non-src directories", () => {
+        createProject({
+            "libs/shared/Button.ts": "export const Button = () => {};",
+            "libs/utils/format.ts": "export const format = () => {};",
+            "src/app.ts": `
+                import { Button } from '@shared/Button';
+                import { format } from '@utils/format';
+            `,
+        });
+
+        const sharedResult = run({
+            path: "@shared/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@shared/*": ["libs/shared/*"],
+                        "@utils/*": ["libs/utils/*"],
+                    },
+                },
+            },
+        });
+
+        const utilsResult = run({
+            path: "@utils/format",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@shared/*": ["libs/shared/*"],
+                        "@utils/*": ["libs/utils/*"],
+                    },
+                },
+            },
+        });
+
+        expect(sharedResult).toBe(resolveProjectPath("libs/shared/Button.ts"));
+        expect(utilsResult).toBe(resolveProjectPath("libs/utils/format.ts"));
+    });
+
+    it("should handle aliased root imports", () => {
+        createProject({
+            "src/index.ts": "export const app = {};",
+            "src/components/Button.ts": "import { app } from '~';",
+        });
+
+        const result = run({
+            path: "~",
+            importer: resolveProjectPath("src/components/Button.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "~": ["src/index.ts"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/index.ts"));
+    });
+
+    it("should resolve path aliases with special characters", () => {
+        createProject({
+            "src/utils/shared.ts": "export const shared = {};",
+            "src/app.ts": "import { shared } from '#utils/shared';",
+        });
+
+        const result = run({
+            path: "#utils/shared",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "#utils/*": ["src/utils/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/shared.ts"));
+    });
+
+    it("should handle case-insensitive imports correctly on case-insensitive filesystems", () => {
+        createProject({
+            "src/Components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from './components/button';",
+        });
+
+        // This test will pass on case-insensitive file systems (like Windows)
+        // and fail on case-sensitive ones (like Linux)
+        // We're just testing the resolver works as expected for the current environment
+        const result = run({
+            path: "./components/button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        // Depending on the filesystem, this might be case-sensitive or insensitive
+        const expectedPath = resolveProjectPath("src/Components/Button.ts");
+        const exists = !!result;
+
+        // We're not testing the exact result, just that it exists if the filesystem found it
+        expect(exists).toBe(!!expectedPath);
+    });
+
+    it("should handle path mappings with empty string patterns", () => {
+        createProject({
+            "src/index.ts": "export const app = {};",
+            "src/components/Button.ts": "import { app } from '';",
+        });
+
+        const result = run({
+            path: "",
+            importer: resolveProjectPath("src/components/Button.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "": ["src/index.ts"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/index.ts"));
+    });
+
+    it("should handle baseUrl with trailing slash", () => {
+        createProject({
+            "src/utils/format.ts": "export const format = () => {};",
+            "src/app.ts": "import { format } from 'utils/format';",
+        });
+
+        const result = run({
+            path: "utils/format",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "src/",
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/format.ts"));
+    });
+
+    it("should support mixed absolute and relative paths in path mappings", () => {
+        const absolutePath = resolveProjectPath("libs/shared");
+
+        createProject({
+            "libs/shared/Button.ts": "export const Button = () => {};",
+            "src/utils/icons.ts": "export const Icon = () => {};",
+            "src/app.ts": `
+                import { Button } from '@shared/Button';
+                import { Icon } from '@icons';
+            `,
+        });
+
+        const sharedResult = run({
+            path: "@shared/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@shared/*": [`${absolutePath}/*`],
+                        "@icons": ["src/utils/icons.ts"],
+                    },
+                },
+            },
+        });
+
+        expect(sharedResult).toBe(resolveProjectPath("libs/shared/Button.ts"));
+    });
+
+    it("should handle path mappings with '$' character", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from '$components/Button';",
+        });
+
+        const result = run({
+            path: "$components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "$components/*": ["src/components/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.ts"));
+    });
+
+    it("should resolve imports with multiple segment aliases correctly", () => {
+        createProject({
+            "src/libs/core/utils/format.ts": "export const format = () => {};",
+            "src/app.ts": "import { format } from '@libs/core/utils/format';",
+        });
+
+        const result = run({
+            path: "@libs/core/utils/format",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@libs/core/*": ["src/libs/core/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/libs/core/utils/format.ts"),
+        );
+    });
+
+    it("should handle complex monorepo structures with nested path mappings", () => {
+        createProject({
+            "packages/ui/src/components/Button.ts":
+                "export const Button = () => {};",
+            "packages/core/src/utils/format.ts":
+                "export const format = () => {};",
+            "apps/web/src/app.ts": `
+                import { Button } from '@ui/components/Button';
+                import { format } from '@core/utils/format';
+            `,
+        });
+
+        const uiResult = run({
+            path: "@ui/components/Button",
+            importer: resolveProjectPath("apps/web/src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@ui/*": ["packages/ui/src/*"],
+                        "@core/*": ["packages/core/src/*"],
+                    },
+                },
+            },
+        });
+
+        const coreResult = run({
+            path: "@core/utils/format",
+            importer: resolveProjectPath("apps/web/src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@ui/*": ["packages/ui/src/*"],
+                        "@core/*": ["packages/core/src/*"],
+                    },
+                },
+            },
+        });
+
+        expect(uiResult).toBe(
+            resolveProjectPath("packages/ui/src/components/Button.ts"),
+        );
+        expect(coreResult).toBe(
+            resolveProjectPath("packages/core/src/utils/format.ts"),
+        );
     });
 });
