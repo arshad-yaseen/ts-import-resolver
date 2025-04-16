@@ -1,6 +1,9 @@
 # ts-import-resolver
 
-Resolves TypeScript import paths to absolute file paths.
+[![npm version](https://img.shields.io/npm/v/bunup.svg?style=flat-square)](https://www.npmjs.com/package/ts-import-resolver)
+[![npm downloads](https://img.shields.io/npm/dm/bunup.svg?style=flat-square)](https://www.npmjs.com/package/ts-import-resolver)
+
+Lightweight, fast utility that resolves TypeScript import paths to absolute file paths without TypeScript compiler.
 
 ## Installation
 
@@ -11,8 +14,8 @@ npm install ts-import-resolver
 
 - Resolves TypeScript imports to their absolute file paths
 - Supports path aliases, baseUrl, and other module resolution options defined in tsconfig.json
-- Caches for better performance
-- No additional dependencies besides TypeScript
+- Lightweight and efficient with zero dependencies
+- Blazing fast resolution without TypeScript compiler overhead
 
 ## Usage
 
@@ -62,7 +65,7 @@ interface ResolveTypeScriptImportPathOptions {
   /**
    * The parsed TypeScript configuration object
    */
-  tsconfig: Record<string, unknown> | null;
+  tsconfig: Record<string, unknown>;
   
   /**
    * The root directory of the project
@@ -74,10 +77,6 @@ interface ResolveTypeScriptImportPathOptions {
 #### Returns
 
 - `string | null` - The absolute path to the imported module if found, or `null` if it couldn't be resolved or is from node_modules.
-
-## How It Works
-
-This library uses TypeScript's built-in module resolution system to resolve import paths. It parses your tsconfig.json configuration and uses TypeScript's APIs to accurately resolve imports according to your project's configuration.
 
 ## License
 
