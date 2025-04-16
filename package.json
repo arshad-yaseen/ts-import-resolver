@@ -45,6 +45,14 @@
             "optional": true
         }
     },
+    "keywords": [
+        "typescript",
+        "import",
+        "path",
+        "resolver",
+        "typescript-import",
+        "module-resolution"
+    ],
     "packageManager": "pnpm@10.8.1",
     "homepage": "https://github.com/arshad-yaseen/ts-import-resolver#readme"
 }
