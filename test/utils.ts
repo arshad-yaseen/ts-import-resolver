@@ -1,9 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import {
-    type ResolveTypeScriptImportPathOptions,
-    resolveTypeScriptImportPath,
-} from "../src";
+import { resolveTsImportPath, type resolveTsImportPathOptions } from "../src";
 
 const TEST_DIR = join(process.cwd(), "test");
 const PROJECT_DIR = join(TEST_DIR, ".project");
@@ -29,10 +26,10 @@ export function cleanProjectDir(): void {
 }
 
 export function run(
-    options: Omit<ResolveTypeScriptImportPathOptions, "rootDir">,
+    options: Omit<resolveTsImportPathOptions, "rootDir">,
 ): string | null {
-    return resolveTypeScriptImportPath({
-        ...(options as ResolveTypeScriptImportPathOptions),
+    return resolveTsImportPath({
+        ...(options as resolveTsImportPathOptions),
         rootDir: PROJECT_DIR,
     });
 }

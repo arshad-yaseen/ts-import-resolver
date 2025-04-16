@@ -6,7 +6,7 @@ import {
     run,
 } from "./utils";
 
-describe("resolveTypeScriptImportPath", () => {
+describe("resolveTsImportPath", () => {
     beforeEach(() => {
         cleanProjectDir();
     });

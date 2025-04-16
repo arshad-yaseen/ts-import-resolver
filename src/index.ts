@@ -13,7 +13,7 @@ interface CompilerOptions {
     moduleResolution?: "node" | "classic";
 }
 
-export interface ResolveTypeScriptImportPathOptions {
+export interface resolveTsImportPathOptions {
     path: string;
     importer: string;
     tsconfig: TsConfig;
@@ -49,8 +49,8 @@ class ResolutionCache {
 
 const cache = new ResolutionCache();
 
-export function resolveTypeScriptImportPath(
-    options: ResolveTypeScriptImportPathOptions,
+export function resolveTsImportPath(
+    options: resolveTsImportPathOptions,
 ): string | null {
     const { path: importPath, importer, tsconfig, rootDir } = options;
 

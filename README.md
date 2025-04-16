@@ -20,7 +20,7 @@ npm install ts-import-resolver
 ## Usage
 
 ```typescript
-import { resolveTypeScriptImportPath } from 'ts-import-resolver';
+import { resolveTsImportPath } from 'ts-import-resolver';
 import fs from 'fs';
 import path from 'path';
 
@@ -28,7 +28,7 @@ import path from 'path';
 const tsconfig = JSON.parse(fs.readFileSync('./tsconfig.json', 'utf8'));
 const rootDir = path.resolve('.');
 
-const absolutePath = resolveTypeScriptImportPath({
+const absolutePath = resolveTsImportPath({
   path: '@/components/Button',  // The import path to resolve
   importer: '/path/to/your/file.ts',  // The file containing the import
   tsconfig,  // Your parsed tsconfig object
@@ -44,14 +44,14 @@ if (absolutePath) {
 
 ## API Reference
 
-### resolveTypeScriptImportPath(options)
+### resolveTsImportPath(options)
 
 Resolves a TypeScript import path to its absolute file path.
 
 #### Options
 
 ```typescript
-interface ResolveTypeScriptImportPathOptions {
+interface resolveTsImportPathOptions {
   /**
    * The import path to resolve (e.g., './utils', '@/components', etc.)
    */
@@ -76,7 +76,7 @@ interface ResolveTypeScriptImportPathOptions {
 
 #### Returns
 
-- `string | null` - The absolute path to the imported module if found, or `null` if it couldn't be resolved or is from node_modules.
+- `string | null` - The absolute path to the imported module if found, or `null` if it couldn't be resolved.
 
 ## License
 
