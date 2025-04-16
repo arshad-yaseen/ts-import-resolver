@@ -1,0 +1,36 @@
+name: CI
+on:
+      push:
+            branches:
+                  - 'main'
+      pull_request: {}
+
+jobs:
+      ci:
+            strategy:
+                  matrix:
+                        os: [ubuntu-latest, macos-latest]
+                        node-version: [20.x]
+            runs-on: ${{ matrix.os }}
+            steps:
+                  - name: Checkout repository
+                    uses: actions/checkout@v4
+
+                  - name: Setup Node.js
+                    uses: actions/setup-node@v4
+                    with:
+                          node-version: ${{ matrix.node-version }}
+
+                  - name: Install pnpm
+                    uses: pnpm/action-setup@v2
+                    with:
+                          version: latest
+
+                  - name: Install dependencies
+                    run: pnpm install
+
+                  - name: Run validation
+                    run: pnpm tsc && pnpm lint && pnpm format
+
+                  - name: Run tests
+                    run: pnpm test
