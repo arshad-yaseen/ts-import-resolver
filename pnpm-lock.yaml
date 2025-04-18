@@ -24,8 +24,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0
       bunup:
-        specifier: ^0.4.20
-        version: 0.4.20(typescript@5.8.3)
+        specifier: ^0.4.21
+        version: 0.4.21(typescript@5.8.3)
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -824,8 +824,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  bunup@0.4.20:
-    resolution: {integrity: sha512-AzEzByNg4JKeLul3SN3Xv3n5O8s/d8fJgPmRZO3ML6WV5/w5+75EPOh/H7p3YiTnN2Ca8zOeGegGpQy/2TVB/g==}
+  bunup@0.4.21:
+    resolution: {integrity: sha512-tXbc6XhukgE7zwpIDP10CNl//Zg3V2//5PlN6GKKeeBy8DoAPLT6x4cQBd1ZVEfgKTe+ggwEY3izoK7p7g7BYQ==}
     hasBin: true
     peerDependencies:
       typescript: '>=4.5.0'
@@ -1318,8 +1318,8 @@ packages:
     resolution: {integrity: sha512-n1cw8k1k0x4pgA2+9XrOkFydTerNcJ1zWCO5Nn9scWHTD+5tp8dghT2x1uduQePZTZgd3Tupf+x9BxJjeJi77Q==}
     engines: {node: '>=14.0.0'}
 
-  ts-import-resolver@0.1.5:
-    resolution: {integrity: sha512-JD4TZ9u0S1H8Obwphy9pm10df8HdtCi0KpMqfvUYc/L76KGy7Mb+hGwugGK9R3P+R1ifG5dwqXRIM7HFVtUf3g==}
+  ts-import-resolver@0.1.9:
+    resolution: {integrity: sha512-OxDmWOjWav8+Z+fKLPsuGC2hhBKIcYTZLGUXlueBhfr7/opfTySjuq+01tyPvZvpYQL5oBTa37UfSFdZuch6lA==}
     peerDependencies:
       typescript: '>=4.5.0'
     peerDependenciesMeta:
@@ -2049,7 +2049,7 @@ snapshots:
     transitivePeerDependencies:
       - magicast
 
-  bunup@0.4.20(typescript@5.8.3):
+  bunup@0.4.21(typescript@5.8.3):
     dependencies:
       chokidar: 4.0.3
       coffi: 0.1.20
@@ -2057,7 +2057,7 @@ snapshots:
       oxc-transform: 0.58.1
       rolldown: 1.0.0-beta.7(typescript@5.8.3)
       rolldown-plugin-dts: 0.4.0(rolldown@1.0.0-beta.7(typescript@5.8.3))
-      ts-import-resolver: 0.1.5(typescript@5.8.3)
+      ts-import-resolver: 0.1.9(typescript@5.8.3)
     optionalDependencies:
       typescript: 5.8.3
     transitivePeerDependencies:
@@ -2569,7 +2569,7 @@ snapshots:
 
   tinyspy@3.0.2: {}
 
-  ts-import-resolver@0.1.5(typescript@5.8.3):
+  ts-import-resolver@0.1.9(typescript@5.8.3):
     optionalDependencies:
       typescript: 5.8.3
 

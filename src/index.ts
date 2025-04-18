@@ -78,7 +78,18 @@ function parseCompilerOptions(
     const baseUrl = options.baseUrl
         ? path.resolve(rootDir, options.baseUrl)
         : rootDir;
-    const extensions = [".ts", ".tsx", ".d.ts"];
+
+    const extensions = [
+        ".ts",
+        ".tsx",
+        ".mts",
+        ".cts",
+        ".d.ts",
+        ".d.tsx",
+        ".d.mts",
+        ".d.cts",
+    ];
+
     if (options.allowJs) extensions.push(".js", ".jsx");
     if (options.resolveJsonModule) extensions.push(".json");
 
@@ -179,6 +190,7 @@ function tryResolveFile(
     if (fileExists(filePath)) return filePath;
 
     const { extensions } = compilerOptions;
+
     for (const ext of extensions) {
         const pathWithExt = `${filePath}${ext}`;
         if (fileExists(pathWithExt)) return pathWithExt;
