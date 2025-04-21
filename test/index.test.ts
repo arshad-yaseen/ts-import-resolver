@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { cleanPath } from "../src";
 import {
     cleanProjectDir,
     createProject,
@@ -350,7 +351,7 @@ describe("resolveTsImportPath", () => {
             tsconfig: {},
         });
 
-        expect(result).toBe(absolutePath);
+        expect(result).toBe(cleanPath(absolutePath));
     });
 
     it("should handle nested directory structures", () => {

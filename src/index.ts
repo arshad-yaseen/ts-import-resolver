@@ -222,9 +222,12 @@ function directoryExists(dirPath: string): boolean {
     }
 }
 
-function cleanPath(path: string): string {
-    // Remove duplicate slashes
+export function cleanPath(path: string): string {
+    // Normalize path separators to forward slashes
     let cleaned = path.replace(/\\/g, "/");
+
+    // Remove duplicate slashes
+    cleaned = cleaned.replace(/\/+/g, "/");
 
     // Remove query parameters
     cleaned = cleaned.split("?")[0];
