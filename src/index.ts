@@ -16,7 +16,7 @@ interface CompilerOptions {
 export interface resolveTsImportPathOptions {
     path: string;
     importer: string;
-    tsconfig: TsConfig;
+    tsconfig?: TsConfig;
     rootDir: string;
 }
 
@@ -54,9 +54,7 @@ export function resolveTsImportPath(
 ): string | null {
     const { path: importPath, importer, tsconfig, rootDir } = options;
 
-    if (!tsconfig) return null;
-
-    const parsedConfig = parseCompilerOptions(tsconfig, rootDir);
+    const parsedConfig = parseCompilerOptions(tsconfig || {}, rootDir);
     const resolvedModule = resolveModuleName(
         importPath,
         importer,

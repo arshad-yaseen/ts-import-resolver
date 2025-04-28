@@ -227,11 +227,11 @@ describe("resolveTsImportPath", () => {
     it("should resolve JSON imports when resolveJsonModule is enabled", () => {
         createProject({
             "src/data/config.json": JSON.stringify({ version: "1.0.0" }),
-            "src/app.ts": "import config from './data/config.json';",
+            "src/app.ts": "import config from './data/config';",
         });
 
         const result = run({
-            path: "./data/config.json",
+            path: "./data/config",
             importer: resolveProjectPath("src/app.ts"),
             tsconfig: {
                 compilerOptions: {
@@ -1498,5 +1498,144 @@ describe("complex index resolution scenarios", () => {
 
         // Should prioritize .ts over other extensions
         expect(result).toBe(resolveProjectPath("src/utils/helper.ts"));
+    });
+});
+
+describe("no tsconfig resolution", () => {
+    beforeEach(() => {
+        cleanProjectDir();
+    });
+
+    it("should resolve relative imports without tsconfig", () => {
+        createProject({
+            "src/index.ts": "export const hello = 'world';",
+            "src/utils/helper.ts": "import { hello } from '../index';",
+        });
+
+        const result = run({
+            path: "../index",
+            importer: resolveProjectPath("src/utils/helper.ts"),
+        });
+
+        expect(result).toBe(resolveProjectPath("src/index.ts"));
+    });
+
+    it("should resolve imports to index files without tsconfig", () => {
+        createProject({
+            "src/utils/index.ts": "export const util = () => {};",
+            "src/app.ts": "import { util } from './utils';",
+        });
+
+        const result = run({
+            path: "./utils",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/index.ts"));
+    });
+
+    it("should resolve imports with different extensions without tsconfig", () => {
+        createProject({
+            "src/components/Button.tsx": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from './components/Button';",
+        });
+
+        const result = run({
+            path: "./components/Button",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.tsx"));
+    });
+
+    it("should not resolve JavaScript files without tsconfig (allowJs=false by default)", () => {
+        createProject({
+            "src/utils/helper.js": "export const helper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper';",
+        });
+
+        const result = run({
+            path: "./utils/helper",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBeNull();
+    });
+
+    it("should not resolve JSON files without tsconfig (resolveJsonModule=false by default)", () => {
+        createProject({
+            "src/data/config.json": JSON.stringify({ version: "1.0.0" }),
+            "src/app.ts": "import config from './data/config';",
+        });
+
+        const result = run({
+            path: "./data/config",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBeNull();
+    });
+
+    it("should return null for non-existent imports without tsconfig", () => {
+        createProject({
+            "src/app.ts": "import { nonExistent } from './utils/non-existent';",
+        });
+
+        const result = run({
+            path: "./utils/non-existent",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBeNull();
+    });
+
+    it("should handle path with double slashes without tsconfig", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from './components//Button';",
+        });
+
+        const result = run({
+            path: "./components//Button",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.ts"));
+    });
+
+    it("should handle absolute paths without tsconfig", () => {
+        const absolutePath = resolveProjectPath("src/utils/helper.ts");
+
+        createProject({
+            "src/utils/helper.ts": "export const helper = () => {};",
+            "src/app.ts": `import { helper } from '${absolutePath}';`,
+        });
+
+        const result = run({
+            path: absolutePath,
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBe(cleanPath(absolutePath));
+    });
+
+    it("should handle nested directory structures without tsconfig", () => {
+        createProject({
+            "src/features/auth/services/auth-service/index.ts":
+                "export const authService = {};",
+            "src/app.ts":
+                "import { authService } from './features/auth/services/auth-service';",
+        });
+
+        const result = run({
+            path: "./features/auth/services/auth-service",
+            importer: resolveProjectPath("src/app.ts"),
+        });
+
+        expect(result).toBe(
+            resolveProjectPath(
+                "src/features/auth/services/auth-service/index.ts",
+            ),
+        );
     });
 });
