@@ -24,8 +24,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0
       bunup:
-        specifier: ^0.4.41
-        version: 0.4.41(typescript@5.8.3)
+        specifier: ^0.5.6
+        version: 0.5.6(typescript@5.8.3)
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -824,8 +824,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  bunup@0.4.41:
-    resolution: {integrity: sha512-yMzPZAtXmTMwvvgdCgNw8T191Y1bLq1OtVOzK0FTt3RMrpr3cnqpd3DnYIDkUmcz9fol3dC2ECfaTtfzskrW5Q==}
+  bunup@0.5.6:
+    resolution: {integrity: sha512-8Hj9f7+SDB3lEHrIqP3yGUZrYQd0U/gBuwEawayeg9NkTvLcvywxWcOQtuUJNsu/EC+dD6URfg7Ck+A4UF7RXw==}
     hasBin: true
     peerDependencies:
       typescript: '>=4.5.0'
@@ -872,8 +872,8 @@ packages:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
     engines: {node: '>=12'}
 
-  coffi@0.1.21:
-    resolution: {integrity: sha512-EnFIXI7GvVUoewtqoHnpiK+0JLECOW6ZuNyNvmh334jUHw4tmwuJJQcUhjmheegVesP8/8AkZQS+QbdOIyrUPA==}
+  coffi@0.1.25:
+    resolution: {integrity: sha512-7kXuMIdvs6YGvNXdbeLDpdc9TUr0Rfol8T6hiY0hGuyMZYRCEpE2XtRBNNKpwcDVnlTH/QFql3w/ltB+m8W64A==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -2062,10 +2062,10 @@ snapshots:
     transitivePeerDependencies:
       - magicast
 
-  bunup@0.4.41(typescript@5.8.3):
+  bunup@0.5.6(typescript@5.8.3):
     dependencies:
       chokidar: 4.0.3
-      coffi: 0.1.21
+      coffi: 0.1.25
       oxc-resolver: 5.2.0
       oxc-transform: 0.58.1
       rolldown: 1.0.0-beta.7(typescript@5.8.3)
@@ -2123,7 +2123,7 @@ snapshots:
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
-  coffi@0.1.21: {}
+  coffi@0.1.25: {}
 
   color-convert@2.0.1:
     dependencies:
