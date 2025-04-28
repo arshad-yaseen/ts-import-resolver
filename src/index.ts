@@ -16,7 +16,7 @@ interface CompilerOptions {
 export interface resolveTsImportPathOptions {
     path: string;
     importer: string;
-    tsconfig?: TsConfig;
+    tsconfig: TsConfig | null | undefined;
     rootDir: string;
 }
 

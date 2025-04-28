@@ -1515,6 +1515,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "../index",
             importer: resolveProjectPath("src/utils/helper.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBe(resolveProjectPath("src/index.ts"));
@@ -1529,6 +1530,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./utils",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBe(resolveProjectPath("src/utils/index.ts"));
@@ -1543,6 +1545,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./components/Button",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBe(resolveProjectPath("src/components/Button.tsx"));
@@ -1557,6 +1560,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./utils/helper",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBeNull();
@@ -1571,6 +1575,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./data/config",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBeNull();
@@ -1584,6 +1589,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./utils/non-existent",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBeNull();
@@ -1598,6 +1604,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./components//Button",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBe(resolveProjectPath("src/components/Button.ts"));
@@ -1614,6 +1621,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: absolutePath,
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBe(cleanPath(absolutePath));
@@ -1630,6 +1638,7 @@ describe("no tsconfig resolution", () => {
         const result = run({
             path: "./features/auth/services/auth-service",
             importer: resolveProjectPath("src/app.ts"),
+            tsconfig: null,
         });
 
         expect(result).toBe(
