@@ -63,9 +63,9 @@ interface resolveTsImportPathOptions {
   importer: string;
   
   /**
-   * The parsed TypeScript configuration object
+   * The parsed TypeScript configuration object if available
    */
-  tsconfig: Record<string, unknown>;
+  tsconfig: Record<string, unknown> | null | undefined;
   
   /**
    * The root directory of the project

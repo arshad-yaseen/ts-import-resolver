@@ -13,10 +13,25 @@ interface CompilerOptions {
     moduleResolution?: "node" | "classic";
 }
 
-export interface resolveTsImportPathOptions {
+/**
+ * Options for resolving TypeScript import paths
+ */
+export interface ResolveTsImportPathOptions {
+    /**
+     * The import path to resolve
+     */
     path: string;
+    /**
+     * The absolute path of the file containing the import
+     */
     importer: string;
+    /**
+     * The parsed tsconfig.json file, if available
+     */
     tsconfig: TsConfig | null | undefined;
+    /**
+     * The root directory of the project
+     */
     rootDir: string;
 }
 
@@ -50,7 +65,7 @@ class ResolutionCache {
 const cache = new ResolutionCache();
 
 export function resolveTsImportPath(
-    options: resolveTsImportPathOptions,
+    options: ResolveTsImportPathOptions,
 ): string | null {
     const { path: importPath, importer, tsconfig, rootDir } = options;
 
