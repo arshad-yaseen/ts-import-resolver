@@ -1,6 +1,6 @@
 {
     "name": "ts-import-resolver",
-    "version": "0.1.16",
+    "version": "0.1.17",
     "description": "Lightweight, fast utility that resolves TypeScript import paths to absolute file paths without TypeScript compiler overhead. Zero dependencies.",
     "type": "module",
     "main": "./dist/index.cjs",
