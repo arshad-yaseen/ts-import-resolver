@@ -42,28 +42,6 @@ interface ParsedCompilerOptions {
     rootDir: string;
 }
 
-class ResolutionCache {
-    private patternRegexes = new Map<string, RegExp>();
-
-    getOrCreatePatternRegex(pattern: string): RegExp {
-        let regex = this.patternRegexes.get(pattern);
-        if (!regex) {
-            const escaped = pattern
-                .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-                .replace(/\*/g, "(.*)");
-            regex = new RegExp(`^${escaped}$`);
-            this.patternRegexes.set(pattern, regex);
-        }
-        return regex;
-    }
-
-    clear(): void {
-        this.patternRegexes.clear();
-    }
-}
-
-const cache = new ResolutionCache();
-
 export function resolveTsImportPath(
     options: ResolveTsImportPathOptions,
 ): string | null {
@@ -77,10 +55,6 @@ export function resolveTsImportPath(
     );
 
     return resolvedModule || null;
-}
-
-export function clearResolutionCache(): void {
-    cache.clear();
 }
 
 function parseCompilerOptions(
@@ -177,7 +151,10 @@ function tryResolveWithPathMappings(
     for (const [pattern, substitutions] of Object.entries(paths)) {
         if (!Array.isArray(substitutions) || !substitutions.length) continue;
 
-        const patternRegex = cache.getOrCreatePatternRegex(pattern);
+        const escaped = pattern
+            .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+            .replace(/\*/g, "(.*)");
+        const patternRegex = new RegExp(`^${escaped}$`);
         const match = patternRegex.exec(moduleName);
         if (!match) continue;
 
