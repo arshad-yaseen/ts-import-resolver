@@ -30,24 +30,24 @@ export interface ResolveTsImportPathOptions {
      */
     tsconfig: TsConfig | null | undefined;
     /**
-     * The root directory of the project
+     * The custom root directory of the project, by default the current working directory
      */
-    rootDir: string;
+    cwd: string;
 }
 
 interface ParsedCompilerOptions {
     baseUrl: string;
     paths: Record<string, string[]>;
     extensions: string[];
-    rootDir: string;
+    cwd: string;
 }
 
 export function resolveTsImportPath(
     options: ResolveTsImportPathOptions,
 ): string | null {
-    const { path: importPath, importer, tsconfig, rootDir } = options;
+    const { path: importPath, importer, tsconfig, cwd } = options;
 
-    const parsedConfig = parseCompilerOptions(tsconfig || {}, rootDir);
+    const parsedConfig = parseCompilerOptions(tsconfig || {}, cwd);
     const resolvedModule = resolveModuleName(
         importPath,
         importer,
@@ -59,12 +59,10 @@ export function resolveTsImportPath(
 
 function parseCompilerOptions(
     tsconfig: TsConfig,
-    rootDir: string,
+    cwd: string,
 ): ParsedCompilerOptions {
     const options = tsconfig.compilerOptions || {};
-    const baseUrl = options.baseUrl
-        ? path.resolve(rootDir, options.baseUrl)
-        : rootDir;
+    const baseUrl = options.baseUrl ? path.resolve(cwd, options.baseUrl) : cwd;
 
     const extensions = [
         ".ts",
@@ -84,7 +82,7 @@ function parseCompilerOptions(
         baseUrl,
         paths: options.paths || {},
         extensions,
-        rootDir,
+        cwd,
     };
 }
 

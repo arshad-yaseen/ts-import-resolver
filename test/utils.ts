@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { resolveTsImportPath, type resolveTsImportPathOptions } from "../src";
+import { type ResolveTsImportPathOptions, resolveTsImportPath } from "../src";
 
 const TEST_DIR = join(process.cwd(), "test");
 const PROJECT_DIR = join(TEST_DIR, ".project");
@@ -26,11 +26,11 @@ export function cleanProjectDir(): void {
 }
 
 export function run(
-    options: Omit<resolveTsImportPathOptions, "rootDir">,
+    options: Omit<ResolveTsImportPathOptions, "cwd">,
 ): string | null {
     return resolveTsImportPath({
-        ...(options as resolveTsImportPathOptions),
-        rootDir: PROJECT_DIR,
+        ...(options as ResolveTsImportPathOptions),
+        cwd: PROJECT_DIR,
     });
 }
 

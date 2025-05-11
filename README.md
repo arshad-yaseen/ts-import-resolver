@@ -26,13 +26,13 @@ import path from 'path';
 
 // Load your tsconfig.json
 const tsconfig = JSON.parse(fs.readFileSync('./tsconfig.json', 'utf8'));
-const rootDir = path.resolve('.');
+const cwd = path.resolve('.');
 
 const absolutePath = resolveTsImportPath({
   path: '@/components/Button',  // The import path to resolve
   importer: '/path/to/your/file.ts',  // The file containing the import
   tsconfig,  // Your parsed tsconfig object
-  rootDir,  // Project root directory
+  cwd,  // Project root directory
 });
 
 if (absolutePath) {
@@ -68,9 +68,9 @@ interface resolveTsImportPathOptions {
   tsconfig: Record<string, unknown> | null | undefined;
   
   /**
-   * The root directory of the project
+   * The custom root of the project
    */
-  rootDir: string;
+  cwd: string;
 }
 ```
 
