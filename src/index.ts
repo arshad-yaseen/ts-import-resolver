@@ -13,25 +13,10 @@ interface CompilerOptions {
     moduleResolution?: "node" | "classic";
 }
 
-/**
- * Options for resolving TypeScript import paths
- */
 export interface ResolveTsImportPathOptions {
-    /**
-     * The import path to resolve
-     */
     path: string;
-    /**
-     * The absolute path of the file containing the import
-     */
     importer: string;
-    /**
-     * The parsed tsconfig.json file, if available
-     */
     tsconfig: TsConfig | null | undefined;
-    /**
-     * The custom root directory of the project, by default the current working directory
-     */
     cwd: string;
 }
 
@@ -39,22 +24,32 @@ interface ParsedCompilerOptions {
     baseUrl: string;
     paths: Record<string, string[]>;
     extensions: string[];
-    cwd: string;
 }
+
+const JS_TO_TS_MAPPINGS: Record<string, string[]> = {
+    ".js": [".ts", ".tsx", ".d.ts"],
+    ".mjs": [".mts", ".d.mts"],
+    ".cjs": [".cts", ".d.cts"],
+    ".jsx": [".tsx", ".d.tsx"],
+} as const;
+
+const BASE_EXTENSIONS = [
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+    ".d.ts",
+    ".d.tsx",
+    ".d.mts",
+    ".d.cts",
+];
 
 export function resolveTsImportPath(
     options: ResolveTsImportPathOptions,
 ): string | null {
     const { path: importPath, importer, tsconfig, cwd } = options;
-
     const parsedConfig = parseCompilerOptions(tsconfig || {}, cwd);
-    const resolvedModule = resolveModuleName(
-        importPath,
-        importer,
-        parsedConfig,
-    );
-
-    return resolvedModule || null;
+    return resolveModuleName(cleanPath(importPath), importer, parsedConfig);
 }
 
 function parseCompilerOptions(
@@ -63,27 +58,12 @@ function parseCompilerOptions(
 ): ParsedCompilerOptions {
     const options = tsconfig.compilerOptions || {};
     const baseUrl = options.baseUrl ? path.resolve(cwd, options.baseUrl) : cwd;
-
-    const extensions = [
-        ".ts",
-        ".tsx",
-        ".mts",
-        ".cts",
-        ".d.ts",
-        ".d.tsx",
-        ".d.mts",
-        ".d.cts",
-    ];
+    const extensions = [...BASE_EXTENSIONS];
 
     if (options.allowJs) extensions.push(".js", ".jsx");
     if (options.resolveJsonModule) extensions.push(".json");
 
-    return {
-        baseUrl,
-        paths: options.paths || {},
-        extensions,
-        cwd,
-    };
+    return { baseUrl, paths: options.paths || {}, extensions };
 }
 
 function resolveModuleName(
@@ -91,45 +71,37 @@ function resolveModuleName(
     containingFile: string,
     compilerOptions: ParsedCompilerOptions,
 ): string | null {
-    const cleanedModuleName = cleanPath(moduleName);
-
-    // Handle root-level imports (e.g., "/routes") relative to baseUrl
-    if (cleanedModuleName.startsWith("/") && compilerOptions.baseUrl) {
-        const relativePath = cleanedModuleName.slice(1);
-        const resolvedPath = path.join(compilerOptions.baseUrl, relativePath);
-        const result = tryResolveFile(resolvedPath, compilerOptions);
+    if (moduleName.startsWith("/") && compilerOptions.baseUrl) {
+        const result = tryResolveFile(
+            path.join(compilerOptions.baseUrl, moduleName.slice(1)),
+            compilerOptions,
+        );
         if (result) return result;
     }
 
     if (Object.keys(compilerOptions.paths).length > 0) {
         const mappedPath = tryResolveWithPathMappings(
-            cleanedModuleName,
+            moduleName,
             compilerOptions,
         );
         if (mappedPath) return mappedPath;
     }
 
-    if (isRelativePath(cleanedModuleName)) {
-        const containingDir = path.dirname(containingFile);
+    if (isRelativePath(moduleName)) {
         return tryResolveFile(
-            path.resolve(containingDir, cleanedModuleName),
+            path.resolve(path.dirname(containingFile), moduleName),
             compilerOptions,
         );
     }
 
-    if (path.isAbsolute(cleanedModuleName)) {
-        return tryResolveFile(cleanedModuleName, compilerOptions);
+    if (path.isAbsolute(moduleName)) {
+        return tryResolveFile(moduleName, compilerOptions);
     }
 
-    if (compilerOptions.baseUrl) {
-        const baseUrlPath = path.join(
-            compilerOptions.baseUrl,
-            cleanedModuleName,
-        );
-        return tryResolveFile(baseUrlPath, compilerOptions);
-    }
-
-    return null;
+    return tryResolveFile(
+        path.join(compilerOptions.baseUrl, moduleName),
+        compilerOptions,
+    );
 }
 
 function isRelativePath(moduleName: string): boolean {
@@ -152,8 +124,7 @@ function tryResolveWithPathMappings(
         const escaped = pattern
             .replace(/[.+^${}()|[\]\\]/g, "\\$&")
             .replace(/\*/g, "(.*)");
-        const patternRegex = new RegExp(`^${escaped}$`);
-        const match = patternRegex.exec(moduleName);
+        const match = new RegExp(`^${escaped}$`).exec(moduleName);
         if (!match) continue;
 
         const wildcardMatch = pattern.includes("*") ? match[1] : "";
@@ -167,7 +138,6 @@ function tryResolveWithPathMappings(
             if (result) return result;
         }
     }
-
     return null;
 }
 
@@ -177,20 +147,54 @@ function tryResolveFile(
 ): string | null {
     if (fileExists(filePath)) return filePath;
 
-    const { extensions } = compilerOptions;
+    const jsToTsMapping = tryResolveJavaScriptExtension(
+        filePath,
+        compilerOptions.extensions,
+    );
+    if (jsToTsMapping) return jsToTsMapping;
 
-    for (const ext of extensions) {
+    for (const ext of compilerOptions.extensions) {
         const pathWithExt = `${filePath}${ext}`;
         if (fileExists(pathWithExt)) return pathWithExt;
     }
 
     if (directoryExists(filePath)) {
-        for (const ext of extensions) {
+        for (const ext of compilerOptions.extensions) {
             const indexPath = path.join(filePath, `index${ext}`);
             if (fileExists(indexPath)) return indexPath;
         }
     }
 
+    return null;
+}
+
+function tryResolveJavaScriptExtension(
+    filePath: string,
+    extensions: string[],
+): string | null {
+    for (const [jsExt, tsExtensions] of Object.entries(JS_TO_TS_MAPPINGS)) {
+        if (!filePath.endsWith(jsExt)) continue;
+
+        const basePath = filePath.slice(0, -jsExt.length);
+
+        for (const tsExt of tsExtensions) {
+            if (!extensions.includes(tsExt)) continue;
+
+            const tsPath = basePath + tsExt;
+            if (fileExists(tsPath)) return tsPath;
+        }
+
+        if (directoryExists(basePath)) {
+            for (const tsExt of tsExtensions) {
+                if (!extensions.includes(tsExt)) continue;
+
+                const indexPath = path.join(basePath, `index${tsExt}`);
+                if (fileExists(indexPath)) return indexPath;
+            }
+        }
+
+        return null;
+    }
     return null;
 }
 
@@ -211,16 +215,8 @@ function directoryExists(dirPath: string): boolean {
 }
 
 export function cleanPath(path: string): string {
-    // Normalize path separators to forward slashes
-    let cleaned = path.replace(/\\/g, "/");
+    let cleaned = path.replace(/\\/g, "/").replace(/\/+/g, "/").split("?")[0];
 
-    // Remove duplicate slashes
-    cleaned = cleaned.replace(/\/+/g, "/");
-
-    // Remove query parameters
-    cleaned = cleaned.split("?")[0];
-
-    // Handle URL-encoded characters
     try {
         cleaned = decodeURIComponent(cleaned);
     } catch {}

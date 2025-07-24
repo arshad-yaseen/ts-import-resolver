@@ -1648,3 +1648,292 @@ describe("no tsconfig resolution", () => {
         );
     });
 });
+
+describe("JavaScript extension resolution to TypeScript files", () => {
+    beforeEach(() => {
+        cleanProjectDir();
+    });
+
+    it("should resolve .js imports to .ts files", () => {
+        createProject({
+            "src/utils/helper.ts": "export const helper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper.js';",
+        });
+
+        const result = run({
+            path: "./utils/helper.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/helper.ts"));
+    });
+
+    it("should resolve .js imports to .tsx files", () => {
+        createProject({
+            "src/components/Button.tsx": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from './components/Button.js';",
+        });
+
+        const result = run({
+            path: "./components/Button.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.tsx"));
+    });
+
+    it("should resolve .js imports to .d.ts files", () => {
+        createProject({
+            "src/types/models.d.ts": "export interface User { id: string; }",
+            "src/app.ts": "import { User } from './types/models.js';",
+        });
+
+        const result = run({
+            path: "./types/models.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/types/models.d.ts"));
+    });
+
+    it("should resolve .mjs imports to .mts files", () => {
+        createProject({
+            "src/utils/esm-helper.mts": "export const esmHelper = {};",
+            "src/app.ts": "import { esmHelper } from './utils/esm-helper.mjs';",
+        });
+
+        const result = run({
+            path: "./utils/esm-helper.mjs",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/esm-helper.mts"));
+    });
+
+    it("should resolve .cjs imports to .cts files", () => {
+        createProject({
+            "src/utils/cjs-helper.cts": "export const cjsHelper = {};",
+            "src/app.ts": "import { cjsHelper } from './utils/cjs-helper.cjs';",
+        });
+
+        const result = run({
+            path: "./utils/cjs-helper.cjs",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/cjs-helper.cts"));
+    });
+
+    it("should resolve .mjs imports to .d.mts files", () => {
+        createProject({
+            "src/types/esm-types.d.mts": "export interface EsmType {}",
+            "src/app.ts": "import { EsmType } from './types/esm-types.mjs';",
+        });
+
+        const result = run({
+            path: "./types/esm-types.mjs",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/types/esm-types.d.mts"));
+    });
+
+    it("should resolve .cjs imports to .d.cts files", () => {
+        createProject({
+            "src/types/cjs-types.d.cts": "export interface CjsType {}",
+            "src/app.ts": "import { CjsType } from './types/cjs-types.cjs';",
+        });
+
+        const result = run({
+            path: "./types/cjs-types.cjs",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/types/cjs-types.d.cts"));
+    });
+
+    it("should prioritize actual .js files over .ts files when both exist", () => {
+        createProject({
+            "src/utils/helper.js": "export const jsHelper = () => {};",
+            "src/utils/helper.ts": "export const tsHelper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper.js';",
+        });
+
+        const result = run({
+            path: "./utils/helper.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    allowJs: true,
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/helper.js"));
+    });
+
+    it("should resolve .js imports to .ts files even when allowJs is false", () => {
+        createProject({
+            "src/utils/helper.ts": "export const helper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper.js';",
+        });
+
+        const result = run({
+            path: "./utils/helper.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    allowJs: false,
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/helper.ts"));
+    });
+
+    it("should resolve .js imports to index.ts files", () => {
+        createProject({
+            "src/utils/index.ts": "export const utils = {};",
+            "src/app.ts": "import { utils } from './utils/index.js';",
+        });
+
+        const result = run({
+            path: "./utils/index.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/index.ts"));
+    });
+
+    it("should resolve directory imports with .js to TypeScript index files", () => {
+        createProject({
+            "src/utils/index.ts": "export const utils = {};",
+            "src/app.ts": "import { utils } from './utils.js';",
+        });
+
+        const result = run({
+            path: "./utils.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/utils/index.ts"));
+    });
+
+    it("should work with path mappings and .js extensions", () => {
+        createProject({
+            "src/components/Button.ts": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from '@components/Button.js';",
+        });
+
+        const result = run({
+            path: "@components/Button.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    baseUrl: "./",
+                    paths: {
+                        "@components/*": ["src/components/*"],
+                    },
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.ts"));
+    });
+
+    it("should handle complex nested paths with .js extensions", () => {
+        createProject({
+            "src/features/auth/services/auth-service.ts":
+                "export const authService = {};",
+            "src/app.ts":
+                "import { authService } from './features/auth/services/auth-service.js';",
+        });
+
+        const result = run({
+            path: "./features/auth/services/auth-service.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(
+            resolveProjectPath("src/features/auth/services/auth-service.ts"),
+        );
+    });
+
+    it("should prioritize TypeScript files in correct extension order when resolving .js imports", () => {
+        createProject({
+            "src/utils/helper.d.ts": "export declare const helper: any;",
+            "src/utils/helper.tsx": "export const helper = () => {};",
+            "src/utils/helper.ts": "export const helper = () => {};",
+            "src/app.ts": "import { helper } from './utils/helper.js';",
+        });
+
+        const result = run({
+            path: "./utils/helper.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        // Should prioritize .ts over .tsx and .d.ts
+        expect(result).toBe(resolveProjectPath("src/utils/helper.ts"));
+    });
+
+    it("should return null when no TypeScript equivalent exists for .js import", () => {
+        createProject({
+            "src/other/file.ts": "export const other = {};",
+            "src/app.ts": "import { helper } from './utils/helper.js';",
+        });
+
+        const result = run({
+            path: "./utils/helper.js",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBeNull();
+    });
+
+    it("should resolve .jsx imports to .tsx files", () => {
+        createProject({
+            "src/components/Button.tsx": "export const Button = () => {};",
+            "src/app.ts": "import { Button } from './components/Button.jsx';",
+        });
+
+        const result = run({
+            path: "./components/Button.jsx",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {},
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.tsx"));
+    });
+
+    it("should prioritize actual .jsx files over .tsx files when both exist", () => {
+        createProject({
+            "src/components/Button.jsx": "export const jsxButton = () => {};",
+            "src/components/Button.tsx": "export const tsxButton = () => {};",
+            "src/app.ts": "import { Button } from './components/Button.jsx';",
+        });
+
+        const result = run({
+            path: "./components/Button.jsx",
+            importer: resolveProjectPath("src/app.ts"),
+            tsconfig: {
+                compilerOptions: {
+                    allowJs: true,
+                },
+            },
+        });
+
+        expect(result).toBe(resolveProjectPath("src/components/Button.jsx"));
+    });
+});
